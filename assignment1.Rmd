@@ -1,0 +1,149 @@
+---
+title: 'Assignment: Course Project 1'
+author: "Thiago Augusto Cardoso"
+date: "June 8, 2016"
+output: html_document
+---
+
+For producing a fully reproducible document, first we load the required libraries and set the working directory
+
+```{r libraries, echo=TRUE, include=TRUE,message=FALSE,cache=TRUE}
+## load required libraries
+library(dplyr)
+library(RCurl)
+library(rio)
+library(lubridate)
+library(ggplot2)
+
+## set working directory
+setwd('/home/mascc2/coursera/reproducible-research')
+
+```
+
+In a second step, we actually download the data from source at [cloud front, acessed in 2016-06-08] ('https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip') and store in a data.frame
+
+```{r download , cache=TRUE}
+## download data and store in a variable
+activity<-data.frame()
+activity<-import('https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip')
+``` 
+For assuring that the data actually loaded properly we echo the variable
+
+```{r echo, cache=TRUE}
+head(activity)
+```
+
+##1. We also load the data with the dplyr package for easier filtering and aggregation.
+
+```{r dplyr , cache=TRUE}
+## load file 
+activitydplyr<-tbl_df(activity)
+```
+
+## Then we procede with the aggregation to have the number of steps by date.
+
+```{r aggregation , cache=TRUE}
+## generate the number of steps per day
+stepsbydate<-aggregate(steps ~ date, activitydplyr,sum,na.rm=TRUE)
+```
+
+## 2. Now we generate the histogram of steps per day according to question number 2
+
+```{r histogram , cache=TRUE}
+## generate histogram of steps per day
+hist(stepsbydate$steps,main='Histogram of steps per day',xlab='Number of Steps')
+
+```
+
+## 3. Now we generate the mean and median number of steps taken each day according to question number 3
+
+Calculating the mean steps per day
+```{r mean, cache=TRUE,echo=TRUE}
+## take the mean number of steps taken each day
+meanstepsbydate <-aggregate(steps ~ date, activitydplyr,mean,na.rm=TRUE)
+```
+
+```{r echomean, cache=TRUE,echo=TRUE}
+meanstepsbydate
+```
+
+Calculating the median steps per day
+```{r median, cache=TRUE, echo=TRUE}
+medianstepsbydate <-aggregate(steps ~ date, activitydplyr,median,na.rm=TRUE)
+```
+
+```{r echomedian, cache=TRUE,echo=TRUE}
+medianstepsbydate
+```
+
+## 4. Times series plot of the average number of steps taken each day
+
+Generating the time series plot
+
+```{r plotmean, cache=TRUE,echo=TRUE}
+meanstepsbydate$date<-as.Date(meanstepsbydate$date)
+plot(meanstepsbydate$date,meanstepsbydate$steps,xlab='Date',ylab = 'Mean number of steps per day',main="Average number of steps taken",type='l') 
+```
+
+## 5. The 5-minute interval that, on average, contains the maximum number of steps
+
+Selecting the maximum number of steps on average
+
+```{r maxsteps, cache=TRUE,echo=TRUE}
+meanstepsbydatedplyr<-tbl_df(meanstepsbydate)
+max<-head(arrange(meanstepsbydatedplyr,desc(steps)),1)
+max
+```
+
+## 6. Code to describe and show a strategy for imputing missing data
+
+Show the number of missing cases
+
+```{r missingcases, cache=TRUE, echo=TRUE}
+missingcases <- sum(is.na(activitydplyr$steps))
+missingcases
+```
+
+Inputting missing cases with the mean
+
+```{r nonmissing, cache=TRUE,echo=TRUE}
+activitynonna <- activitydplyr
+activitynonna$steps[is.na(activitynonna$steps)] <- mean(activitynonna$steps, na.rm=TRUE)
+activitynonnaperday <- aggregate(steps ~ date, data=activitynonna, sum, na.rm=TRUE)
+activitynonna
+str(activitynonna)
+```
+
+## 7. Histogram of the total number of steps taken each day after missing values are imputed
+Generating the histogram 
+```{r histnonna, cache=TRUE,echo=TRUE}
+hist(activitynonnaperday$steps,main='Histogram of steps per day',xlab='Number of Steps')
+```
+
+## 8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+Create a function to check if there is a weekday
+```{r function,cache=TRUE,echo=TRUE}
+is_weekday <-function(date){
+        if(wday(date) %in% c(1,7)) result<-"weekend"
+        else
+                result<-"weekday"
+        result
+}
+```
+
+create the variable weekday and check how many weekdays
+```{r activitynonna, cache=TRUE,echo=TRUE}
+activitynonna <- mutate(activitynonna,date=ymd(date)) %>% mutate(weekday=sapply(date,is_weekday))
+
+table(activitynonna$weekday)
+```
+
+plot the graph
+```{r plotpanel,cache=TRUE}
+daily_patterns <- activitynonna %>% mutate(weekday=factor(weekday,levels=c("weekend","weekday"))) %>% 
+group_by(interval,weekday)
+
+plot(daily_patterns$weekday,daily_patterns$steps)
+```
+
